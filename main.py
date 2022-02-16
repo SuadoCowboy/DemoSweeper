@@ -4,6 +4,18 @@ import random
 import time
 import os.path
 import json
+import os
+
+file_directory = __file__.split(os.path.sep)
+file_directory = file_directory[:-1]
+
+temp = ''
+for i in file_directory:
+    temp += i + os.path.sep
+
+file_directory = temp[:-1]
+del(temp)
+os.chdir(file_directory)
 
 pygame.font.init()
 pygame.init()
