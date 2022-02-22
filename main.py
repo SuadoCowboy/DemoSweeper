@@ -5,9 +5,9 @@ import time
 import os.path
 import json
 import os
+import sys
 
-file_directory = __file__.split(os.path.sep)
-file_directory = file_directory[:-1]
+file_directory = __file__.split(os.path.sep)[:-1]
 
 temp = ''
 for i in file_directory:
@@ -15,6 +15,8 @@ for i in file_directory:
 
 file_directory = temp[:-1]
 del(temp)
+
+#sys.path.append(file_directory) exe file only works with that
 os.chdir(file_directory)
 
 pygame.font.init()
@@ -30,6 +32,8 @@ cfg = ini_handler.config('config.ini')
 cfg.addconfig(1200,'WINDOW','width')
 cfg.addconfig(600,'WINDOW','height')
 cfg.addconfig('20,20,20','WINDOW','background_color')
+cfg.addconfig('125,125,150','WINDOW','square_color')
+cfg.addconfig('255,255,255','WINDOW','square_font_color')
 cfg.addconfig(False, 'WINDOW', 'debug')
 
 cfg.addconfig('default', 'MINESWEEPER', 'level')
@@ -55,6 +59,8 @@ bombs_amount = cfg['MINESWEEPER']['bombs_amount']
 debug_mode = cfg['WINDOW']['debug']
 
 if debug_mode:
+    print(f'File path: {__file__}')
+    
     level = input('level: ')
     debug_mode = False
 
@@ -69,15 +75,22 @@ for l in levels:
         default_lives = l['lives']
         break
 
-
 if bombs_amount >= w_amount*h_amount:
     bombs_amount = w_amount*h_amount-1
 
+w, h = cfg['WINDOW']['width'], cfg['WINDOW']['height']
 
-WIDTH, HEIGHT = cfg['WINDOW']['width'], cfg['WINDOW']['height']
+if w < 250:
+    w = 250
+if h < 250:
+    h = 250
+
+WIDTH, HEIGHT = w, h
+del(w)
+del(h)
 
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption('Minesweeper')
+pygame.display.set_caption('SuadoSweeper')
 
 lives = default_lives
 
@@ -88,10 +101,16 @@ GRID_W = int(WIDTH/w_amount)
 GRID_H = int(HEIGHT/h_amount)
 
 background = cfg['WINDOW']['background_color'].split(',')
-background = (int(background[0]),int(background[1]),int(background[2]))
+background = (int(background[0]), int(background[1]), int(background[2]))
 
 flag_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['flag_image_path']), (GRID_W-3,GRID_H-1))
 bomb_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['bomb_image_path']), (GRID_W-3,GRID_H-1))
+
+square_color = cfg['WINDOW']['square_color'].split(',')
+square_color = (int(square_color[0]), int(square_color[1]), int(square_color[2]))
+
+square_font_color = cfg['WINDOW']['square_font_color'].split(',')
+square_font_color = (int(square_font_color[0]), int(square_font_color[1]), int(square_font_color[2]))
 
 numbers = []
 num_size = int(WIDTH/30)
@@ -99,26 +118,26 @@ if num_size < 16:
     num_size = 16
 
 for num in range(9):
-    font, text = write_text(num, num_size, return_font=True)
+    font, text = write_text(num, num_size, square_font_color, return_font=True)
     size = font.size(str(num))
     numbers.append([size, text])
 del(num_size)
 del(num)
-del(size) # just free memory you know...
+del(size) # just to free memory
 
 class Square(pygame.Rect):
-    def __init__(self, screen, x, y, is_bomb: bool):
+    def __init__(self, screen, x: int, y: int, is_bomb: bool, color: tuple=(125,125,150)):
         width = GRID_W-3
         height = GRID_H-1
         super().__init__(x, y, width, height)
         
         self.screen = screen
         self.is_bomb = is_bomb
+        self.color = color
+
         self.is_pressed = False
-        
         self.flag_color = background
         self.bomb_color = (100,25,25)
-        self.color = (125,125,150)
         self.lost = False
         self.last_tick = 0
         self.is_flag = False
@@ -230,9 +249,9 @@ class Square(pygame.Rect):
                             square.get_zeros(squares)
 
 squares = []
-for y in range(h_amount):
+for y in range(h_amount): # pygame.draw.line(SCREEN, background, (0,20), (WIDTH,20), 40)
     for x in range(w_amount):
-        squares.append(Square(SCREEN, x*GRID_W+2, y*GRID_H+1, False))
+        squares.append(Square(SCREEN, x*GRID_W+2, y*GRID_H+1, False, square_color))
 
 def remove_bomb(square: Square, replace_with: Square=None):
     square.is_bomb = False
@@ -363,10 +382,12 @@ time_text = time_text[1]
 first_play = True # pode mudar o nome, ta bem bosta
 already_started_counter = False # aq tb pode mudar
 
-released_key = False # e aqui
+draw_topbar = False
+released_keys = {}
+
+topbar_y = -40
 
 used_debug_mode = False
-
 running = True
 while running:
     if not first_play and not already_started_counter:
@@ -391,19 +412,27 @@ while running:
     
     keys = pygame.key.get_pressed()
     if keys[pygame.K_F3]:
-        if released_key:
+        if pygame.K_F3 in released_keys and released_keys[pygame.K_F3] == True:
             debug_mode = not debug_mode
             used_debug_mode = True
-        released_key = False
+        released_keys[pygame.K_F3] = False
     else:
-        released_key = True
-    
+        released_keys[pygame.K_F3] = True
+
+    if keys[pygame.K_ESCAPE]:
+        if pygame.K_ESCAPE in released_keys and released_keys[pygame.K_ESCAPE] == True:
+            draw_topbar = not draw_topbar
+            released_keys[pygame.K_ESCAPE] = False
+    else:
+        released_keys[pygame.K_ESCAPE] = True
+
     for y in range(WIDTH):
         pygame.draw.line(SCREEN, (45,45,45), (y*GRID_W,0), (y*GRID_W,HEIGHT), 3)
     
     for x in range(HEIGHT):
         pygame.draw.line(SCREEN, (45,45,45), (0, x*GRID_H), (WIDTH, x*GRID_H))
     
+    flags = len(bombs)
     correct = 0
     for square in squares:
         square.draw()
@@ -419,8 +448,11 @@ while running:
             t_wanted = 1000
             t_function = restart_game
             t_args = []
-        if square.is_bomb and square.is_flag:
-            correct += 1
+        if square.is_flag:
+            if square.is_bomb:
+                correct += 1
+            flags -= 1
+            
         elif square.is_pressed and not square.is_flag and not square.is_bomb:
             correct += 1
     
@@ -429,7 +461,18 @@ while running:
         SCREEN.blit(time_text, (WIDTH/2-time_text_size[0]/2, HEIGHT/2+win_text_size[1]/2+5))
         if t_start == -1:
             start_new_game()
-    
+
+    if draw_topbar:
+        if topbar_y < 20:
+            topbar_y += 10
+        if topbar_y > 20:
+            topbar_y = 20
+        pygame.draw.line(SCREEN, background, (0,topbar_y), (WIDTH,topbar_y), 40)
+        SCREEN.blit(flag_image, (0,int(topbar_y/2)))
+        SCREEN.blit(write_text(flags), (30,int(topbar_y/2)+5))
+    else:
+        topbar_y = -40
+
     if t_start != -1 and pygame.time.get_ticks()-t_start >= t_wanted:
         t_start = -1
         t_function(*t_args)
