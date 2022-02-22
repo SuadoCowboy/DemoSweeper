@@ -12,15 +12,18 @@ class config:
         self.sectionslist = []
 
     def addconfig(self, config, section, config_name):
+        typeof = 'str'
         if type(config) == int:
             typeof = 'int'
-        if type(config) == bool:
+        elif type(config) == float:
+            typeof = 'float'
+        elif type(config) == bool:
             typeof = 'bool'
-        if type(config) == str:
-            typeof = 'str'
+        
         if section not in self.sectionslist:
             self.sectionslist.append(section)
         self.configs[config_name] = {'config':config, 'section':section, 'typeof':typeof}
+        
     def getconfig(self):
         if os.path.exists(self.filename):
             self.cfg.read(self.filename)
