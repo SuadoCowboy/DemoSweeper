@@ -38,6 +38,8 @@ class config:
                         self.cfg.write(configfile)
                 if self.configs[config]['typeof'] == 'int':
                     self.configs[config]['config'] = int(self.cfg[self.configs[config]['section']][config])
+                if self.configs[config]['typeof'] == 'float':
+                    self.configs[config]['config'] = float(self.cfg[self.configs[config]['section']][config])
                 if self.configs[config]['typeof'] == 'str':
                     self.configs[config]['config'] = self.cfg[self.configs[config]['section']][config]
                 if self.configs[config]['typeof'] == 'bool' or self.configs[config]['typeof'] == 'boolean':
