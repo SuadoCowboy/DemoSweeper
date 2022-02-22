@@ -6,6 +6,7 @@ import os.path
 import json
 import os
 import sys
+import time
 
 file_directory = __file__.split(os.path.sep)[:-1]
 
@@ -35,6 +36,8 @@ cfg.addconfig('20,20,20','WINDOW','background_color')
 cfg.addconfig('125,125,150','WINDOW','square_color')
 cfg.addconfig('255,255,255','WINDOW','square_font_color')
 cfg.addconfig(False, 'WINDOW', 'debug')
+cfg.addconfig(15, 'WINDOW', 'debug_alpha')
+cfg.addconfig(0.3, 'WINDOW', 'volume')
 
 cfg.addconfig('default', 'MINESWEEPER', 'level')
 cfg.addconfig(20,'MINESWEEPER','w_amount')
@@ -44,7 +47,15 @@ cfg.addconfig(30, 'MINESWEEPER', 'bombs_amount')
 
 cfg.addconfig('assets/flag.png','ASSETS','flag_image_path')
 cfg.addconfig('assets/bomb.png','ASSETS','bomb_image_path')
+cfg.addconfig('assets/lost.png', 'ASSETS', 'lost_image_path')
 
+cfg.addconfig('assets/missed1.wav', 'ASSETS', 'missed_sound1')
+cfg.addconfig('assets/missed2.wav', 'ASSETS', 'missed_sound2')
+cfg.addconfig('assets/missed3.wav', 'ASSETS', 'missed_sound3')
+cfg.addconfig('assets/missed4.wav', 'ASSETS', 'missed_sound4')
+cfg.addconfig('assets/missed5.wav', 'ASSETS', 'missed_sound5')
+cfg.addconfig('assets/lost.wav', 'ASSETS', 'lost_sound')
+cfg.addconfig('assets/winning_sounds', 'ASSETS', 'winning_sounds_path')
 
 cfg.getconfig()
 
@@ -80,17 +91,23 @@ if bombs_amount >= w_amount*h_amount:
 
 w, h = cfg['WINDOW']['width'], cfg['WINDOW']['height']
 
-if w < 250:
-    w = 250
-if h < 250:
-    h = 250
+if w < 400:
+    w = 400
+if h < 400:
+    h = 400
+if w > 1300:
+    w = 1300
+if h > 800:
+    h = 800
 
 WIDTH, HEIGHT = w, h
 del(w)
 del(h)
 
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption('SuadoSweeper')
+pygame.display.set_caption('DemoSweeper')
+if os.path.exists('icon.png'):
+    pygame.display.set_icon(pygame.transform.scale(pygame.image.load('icon.png'), (150,150)))
 
 lives = default_lives
 
@@ -105,6 +122,43 @@ background = (int(background[0]), int(background[1]), int(background[2]))
 
 flag_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['flag_image_path']), (GRID_W-3,GRID_H-1))
 bomb_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['bomb_image_path']), (GRID_W-3,GRID_H-1))
+lost_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['lost_image_path']), (WIDTH/2, HEIGHT/2))
+
+volume = cfg['WINDOW']['volume']
+def play_sound(sound: str | pygame.mixer.Sound, wait_end: bool=False, fade_ms: int=0):
+    if type(sound) != pygame.mixer.Sound:
+        sound = pygame.mixer.Sound(sound)
+        sound.set_volume(volume)
+    
+    sound.play(fade_ms=fade_ms)
+    if wait_end == False:
+        return
+    
+    t_start = time.time()
+    while time.time()-t_start < sound.get_length():
+            continue
+
+if os.path.exists(cfg['ASSETS']['lost_sound']): 
+    lost_sound = pygame.mixer.Sound(cfg['ASSETS']['lost_sound'])
+else:
+    lost_sound = None
+
+missed_sounds = []
+for i in range(5):
+    sound = cfg['ASSETS'][f'missed_sound{i+1}']
+    if os.path.exists(sound):
+        missed_sounds.append(pygame.mixer.Sound(sound))
+        missed_sounds[-1].set_volume(volume)
+
+winning_sounds_path = cfg['ASSETS']['winning_sounds_path']
+winning_sounds = []
+if os.path.exists(winning_sounds_path):
+    for i in os.listdir(winning_sounds_path):
+        if i.endswith('.wav') or i.endswith('.mp3'):
+            winning_sounds.append(pygame.mixer.Sound(winning_sounds_path+os.path.sep+i))
+            winning_sounds[-1].set_volume(volume)
+
+del(winning_sounds_path)
 
 square_color = cfg['WINDOW']['square_color'].split(',')
 square_color = (int(square_color[0]), int(square_color[1]), int(square_color[2]))
@@ -121,7 +175,7 @@ for num in range(9):
     font, text = write_text(num, num_size, square_font_color, return_font=True)
     size = font.size(str(num))
     numbers.append([size, text])
-del(num_size)
+
 del(num)
 del(size) # just to free memory
 
@@ -263,7 +317,9 @@ def remove_bomb(square: Square, replace_with: Square=None):
             bombs.append(replace_with)
 
 def create_game():
-    global bombs, already_started_counter, lives, first_play
+    global bombs, already_started_counter, lives, first_play, lost
+    
+    lost = False
 
     first_play = True
     already_started_counter = False
@@ -328,10 +384,13 @@ create_game()
 
 def start_new_game(won_game=True):
     global t_args, t_function, t_start, t_wanted, time_text, time_text_size, used_debug_mode, debug_mode
-    
+
     gametime = str(time.time()-counter_start)
     gametime = gametime[:gametime.index('.')+2]
     
+    if won_game:
+        play_sound(random.choice(winning_sounds))
+
     out = f'Time: {gametime} Won: {str(won_game).lower()} Bombs: {len(bombs)}'
     
     time_text = write_text(out, int(WIDTH/30+HEIGHT/30), return_font=True)
@@ -371,8 +430,8 @@ t_wanted = 0
 t_function = None
 t_args = []
 
-win_text = write_text('You won!', int(WIDTH/10+HEIGHT/5), return_font=True)
-win_text_size = win_text[0].size('You won!')
+win_text = write_text('SPY WON', int(WIDTH/10+HEIGHT/5), return_font=True)
+win_text_size = win_text[0].size('SPY WON')
 win_text = win_text[1]
 
 time_text = write_text('', 1, return_font=True)
@@ -385,8 +444,22 @@ already_started_counter = False # aq tb pode mudar
 draw_topbar = False
 released_keys = {}
 
-topbar_y = -40
+topbar_y_size = int(HEIGHT/10)
+topbar_y = -topbar_y_size
+topbar_desired_y = int(topbar_y_size/2)
 
+game_title = write_text('SuadoSweeper', 32, square_color, return_font=True)
+game_title_size = game_title[0].size('SuadoSweeper')
+game_title = game_title[1]
+
+square_surface = pygame.Surface((squares[0].width, squares[0].height))
+square_surface.set_alpha(cfg['WINDOW']['debug_alpha'] if cfg['WINDOW']['debug_alpha'] >= 15 else 15)
+
+missed_sounds_length = len(missed_sounds)
+last_missed_sound = None
+actual_missed_sound = None
+
+lost = False
 used_debug_mode = False
 running = True
 while running:
@@ -411,7 +484,7 @@ while running:
                 pressed_once[2] = True
     
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_F3]:
+    if lost == False and keys[pygame.K_F3]:
         if pygame.K_F3 in released_keys and released_keys[pygame.K_F3] == True:
             debug_mode = not debug_mode
             used_debug_mode = True
@@ -419,7 +492,7 @@ while running:
     else:
         released_keys[pygame.K_F3] = True
 
-    if keys[pygame.K_ESCAPE]:
+    if lost == False and keys[pygame.K_ESCAPE]:
         if pygame.K_ESCAPE in released_keys and released_keys[pygame.K_ESCAPE] == True:
             draw_topbar = not draw_topbar
             released_keys[pygame.K_ESCAPE] = False
@@ -437,13 +510,28 @@ while running:
     for square in squares:
         square.draw()
 
-        if debug_mode and not square.is_pressed:
+        if debug_mode:
             if square.is_bomb:
-                pygame.draw.rect(SCREEN, (255,0,0,100), square)
+                square_surface.fill((255,0,0))
+                SCREEN.blit(square_surface, (square.x, square.y))
             else:
-                 pygame.draw.rect(SCREEN, (0,255,0,100), square)
+                square_surface.fill((0,255,0))
+                SCREEN.blit(square_surface, (square.x, square.y))
 
         if t_start == -1 and square.update() == -1:
+            if lives == 1:
+                if lost_sound != None:
+                    play_sound(lost_sound)
+                lost = True
+            elif missed_sounds_length != 0:
+                if missed_sounds_length > 1:
+                    while actual_missed_sound == last_missed_sound:
+                        actual_missed_sound = random.choice(missed_sounds)
+                    last_missed_sound = actual_missed_sound
+                    play_sound(actual_missed_sound)
+                else:
+                    play_sound(missed_sounds[0])
+            
             t_start = pygame.time.get_ticks()
             t_wanted = 1000
             t_function = restart_game
@@ -452,7 +540,7 @@ while running:
             if square.is_bomb:
                 correct += 1
             flags -= 1
-            
+
         elif square.is_pressed and not square.is_flag and not square.is_bomb:
             correct += 1
     
@@ -463,15 +551,22 @@ while running:
             start_new_game()
 
     if draw_topbar:
-        if topbar_y < 20:
-            topbar_y += 10
-        if topbar_y > 20:
-            topbar_y = 20
-        pygame.draw.line(SCREEN, background, (0,topbar_y), (WIDTH,topbar_y), 40)
-        SCREEN.blit(flag_image, (0,int(topbar_y/2)))
-        SCREEN.blit(write_text(flags), (30,int(topbar_y/2)+5))
+        if topbar_y < topbar_desired_y:
+            topbar_y += topbar_desired_y/2
+        if topbar_y > topbar_desired_y:
+            topbar_y = topbar_desired_y
+        
+        flags_text = write_text(flags, num_size, return_font=True)
+        flags_size = flags_text[0].size(str(flags))
+        pygame.draw.line(SCREEN, background, (0,topbar_y), (WIDTH,topbar_y), topbar_y_size)
+        SCREEN.blit(flag_image, (3,topbar_y/2))
+        SCREEN.blit(flags_text[1], (GRID_W+6,topbar_y/2))
+        SCREEN.blit(game_title, (WIDTH/2-game_title_size[0]/2,topbar_y/2))
     else:
         topbar_y = -40
+
+    if lost:
+        SCREEN.blit(lost_image, (WIDTH/4, HEIGHT/4))
 
     if t_start != -1 and pygame.time.get_ticks()-t_start >= t_wanted:
         t_start = -1
