@@ -1,0 +1,10 @@
+do some shit with games.json
+
+add more sounds to more things
+
+add main menu
+
+add sys.argv thing to pass debug mode shit, or
+add 2 .exe, debug mode and default mode where
+debug mode can also see games.json better than
+default mode.

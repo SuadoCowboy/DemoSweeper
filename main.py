@@ -5,8 +5,8 @@ import time
 import os.path
 import json
 import os
-import sys
 import time
+#import sys
 
 file_directory = __file__.split(os.path.sep)[:-1]
 
@@ -17,7 +17,7 @@ for i in file_directory:
 file_directory = temp[:-1]
 del(temp)
 
-#sys.path.append(file_directory) exe file only works with that
+#sys.path.append(file_directory) # exe file only works with that
 os.chdir(file_directory)
 
 pygame.font.init()
@@ -49,12 +49,13 @@ cfg.addconfig('assets/flag.png','ASSETS','flag_image_path')
 cfg.addconfig('assets/bomb.png','ASSETS','bomb_image_path')
 cfg.addconfig('assets/lost.png', 'ASSETS', 'lost_image_path')
 
+cfg.addconfig('assets/click.mp3', 'ASSETS', 'click_sound')
+cfg.addconfig('assets/lost.wav', 'ASSETS', 'lost_sound')
 cfg.addconfig('assets/missed1.wav', 'ASSETS', 'missed_sound1')
 cfg.addconfig('assets/missed2.wav', 'ASSETS', 'missed_sound2')
 cfg.addconfig('assets/missed3.wav', 'ASSETS', 'missed_sound3')
 cfg.addconfig('assets/missed4.wav', 'ASSETS', 'missed_sound4')
 cfg.addconfig('assets/missed5.wav', 'ASSETS', 'missed_sound5')
-cfg.addconfig('assets/lost.wav', 'ASSETS', 'lost_sound')
 cfg.addconfig('assets/winning_sounds', 'ASSETS', 'winning_sounds_path')
 
 cfg.getconfig()
@@ -140,8 +141,16 @@ def play_sound(sound: str | pygame.mixer.Sound, wait_end: bool=False, fade_ms: i
 
 if os.path.exists(cfg['ASSETS']['lost_sound']): 
     lost_sound = pygame.mixer.Sound(cfg['ASSETS']['lost_sound'])
+    lost_sound.set_volume(volume)
 else:
     lost_sound = None
+
+click_sound = cfg['ASSETS']['click_sound']
+if os.path.exists(click_sound):
+    click_sound = pygame.mixer.Sound(click_sound)
+    click_sound.set_volume(volume)
+else:
+    click_sound = None
 
 missed_sounds = []
 for i in range(5):
@@ -232,7 +241,7 @@ class Square(pygame.Rect):
         if self.is_pressed and not self.is_bomb and not self.is_flag:
             return
         
-        if pygame.mouse.get_pressed()[0] and self.collidepoint(pygame.mouse.get_pos()):
+        if pygame.mouse.get_pressed()[0] and self.collidepoint(pygame.mouse.get_pos()) and not self.is_flag:
             if self.is_bomb and not self.is_pressed:
                 if not first_play:
                     self.lost = True
@@ -261,11 +270,13 @@ class Square(pygame.Rect):
                     self.get_zeros(squares)
                     self.is_pressed = True
                     first_play = False
+                    play_sound(click_sound)
                     return
             else:
                 self.is_pressed = True
                 self.get_zeros(squares)
                 first_play = False
+                play_sound(click_sound)
                 return
         
         if pygame.mouse.get_pressed()[2] and self.collidepoint(pygame.mouse.get_pos()):

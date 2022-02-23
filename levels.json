@@ -3,18 +3,18 @@
         "w_amount": 15,
         "h_amount": 10,
         "bombs_amount": 10,
-        "lives": 10
+        "lives": 5
     },
     "medium; m; default; d": {
         "w_amount": 25,
         "h_amount": 20,
         "bombs_amount": 45,
-        "lives": 5
+        "lives": 3
     },
     "hard; h": {
         "w_amount": 30,
         "h_amount": 20,
         "bombs_amount": 100,
-        "lives": 2
+        "lives": 1
     }
 }
