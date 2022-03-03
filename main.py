@@ -32,12 +32,12 @@ def write_text(text, size=24, color=(255,255,255), antialias=False, return_font=
     return font.render(str(text), antialias, color)
 
 cfg = ini_handler.config('config.ini')
-cfg.addconfig(1200,'WINDOW','width')
-cfg.addconfig(600,'WINDOW','height')
-cfg.addconfig('20,20,20','WINDOW','background_color')
+cfg.addconfig(1200, 'WINDOW', 'width')
+cfg.addconfig(600, 'WINDOW', 'height')
+cfg.addconfig('20,20,20', 'WINDOW', 'background_color')
 cfg.addconfig('40,40,40', 'WINDOW', 'button_color')
-cfg.addconfig('125,125,150','WINDOW','square_color')
-cfg.addconfig('255,255,255','WINDOW','square_font_color')
+cfg.addconfig('125,125,150', 'WINDOW', 'square_color')
+cfg.addconfig('255,255,255', 'WINDOW', 'square_font_color')
 cfg.addconfig(15, 'WINDOW', 'debug_alpha')
 cfg.addconfig(0.3, 'WINDOW', 'volume')
 
@@ -59,15 +59,22 @@ cfg.addconfig('assets/missed4.wav', 'ASSETS', 'missed_sound4')
 cfg.addconfig('assets/missed5.wav', 'ASSETS', 'missed_sound5')
 cfg.addconfig('assets/winning_sounds', 'ASSETS', 'winning_sounds_path')
 
-cfg.addconfig('ESCAPE', 'BINDS', 'quick_menu')
-cfg.addconfig('F3', 'BINDS','debug_mode')
-cfg.addconfig('F5', 'BINDS','reload_game')
+cfg.addconfig('ESCAPE', 'BINDS', 'topbar_toggle')
+cfg.addconfig('F3', 'BINDS', 'debug_mode')
+cfg.addconfig('F5', 'BINDS', 'reload_game')
+
+cfg.addconfig(170, 'TOPBAR', 'background_alpha')
+cfg.addconfig('20,20,20', 'TOPBAR', 'background_color')
+cfg.addconfig('100,0,0', 'TOPBAR', 'lives_font_color')
+cfg.addconfig('125,125,150','TOPBAR', 'gametitle_color')
+cfg.addconfig('255,255,255', 'TOPBAR', 'flags_font_color')
+
 
 cfg.getconfig()
 cfg = cfg.returnresult()
 
-quick_menu_key = cfg['BINDS']['quick_menu']
-quick_menu_key = eval(f'pygame.K_{quick_menu_key}')
+topbar_key = cfg['BINDS']['topbar_toggle']
+topbar_key = eval(f'pygame.K_{topbar_key}')
 
 debug_mode_key = cfg['BINDS']['debug_mode']
 debug_mode_key = eval(f'pygame.K_{debug_mode_key}')
@@ -170,6 +177,18 @@ background = (int(background[0]), int(background[1]), int(background[2]))
 
 button_color = cfg['WINDOW']['button_color'].split(',')
 button_color = (int(button_color[0]), int(button_color[1]), int(button_color[2]))
+
+topbar_background = cfg['TOPBAR']['background_color'].split(',')
+topbar_background = (int(topbar_background[0]), int(topbar_background[1]), int(topbar_background[2]))
+
+topbar_lives_font_color = cfg['TOPBAR']['lives_font_color'].split(',')
+topbar_lives_font_color = (int(topbar_lives_font_color[0]), int(topbar_lives_font_color[1]), int(topbar_lives_font_color[2]))
+
+topbar_gametitle_color = cfg['TOPBAR']['gametitle_color'].split(',')
+topbar_gametitle_color = (int(topbar_gametitle_color[0]), int(topbar_gametitle_color[1]), int(topbar_gametitle_color[2]))
+
+topbar_flags_font_color = cfg['TOPBAR']['flags_font_color'].split(',')
+topbar_flags_font_color = (int(topbar_flags_font_color[0]), int(topbar_flags_font_color[1]), int(topbar_flags_font_color[2]))
 
 flag_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['flag_image_path']), (GRID_W-3,GRID_H-1))
 bomb_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['bomb_image_path']), (GRID_W-3,GRID_H-1))
@@ -390,7 +409,7 @@ def remove_bomb(square: Square, replace_with: Square=None):
 def create_game():
     global bombs, already_started_counter, lives, first_play, lost, counter_start, game_actions, game_squares
     
-    game_actions = {'debug_mode_key':[],'quick_menu_key':[],'reload_game_key':[],'mouse1':[],'mouse2':[]}
+    game_actions = {'debug_mode_key':[],'topbar_key':[],'reload_game_key':[],'mouse1':[],'mouse2':[]}
 
     game_squares = []
     counter_start = None
@@ -494,12 +513,15 @@ already_started_counter = False # aq tb pode mudar
 draw_topbar = False
 released_keys = {}
 
-topbar_y_size = int(HEIGHT/10)
-topbar_y = -topbar_y_size
-topbar_desired_y = int(topbar_y_size/2)
+topbar = pygame.Surface((WIDTH, int(HEIGHT/10)))
+topbar.set_alpha(cfg['TOPBAR']['background_alpha'])
 
-game_title = write_text('SuadoSweeper', 32, square_color, return_font=True)
-game_title_size = game_title[0].size('SuadoSweeper')
+topbar_y_size = topbar.get_height()
+topbar_y = -topbar_y_size
+topbar_desired_y = 0
+
+game_title = write_text('DemoSweeper', 32, square_color, return_font=True)
+game_title_size = game_title[0].size('DemoSweeper')
 game_title = game_title[1]
 
 square_surface = pygame.Surface((squares[0].width, squares[0].height))
@@ -565,13 +587,13 @@ while running:
     else:
         released_keys[debug_mode_key] = True
 
-    if lost == False and keys[quick_menu_key]:
-        if quick_menu_key in released_keys and released_keys[quick_menu_key] == True:
+    if lost == False and keys[topbar_key]:
+        if topbar_key in released_keys and released_keys[topbar_key] == True:
             draw_topbar = not draw_topbar
-            released_keys[quick_menu_key] = False
-            game_actions['quick_menu_key'].append(pygame.time.get_ticks())
+            released_keys[topbar_key] = False
+            game_actions['topbar_key'].append(pygame.time.get_ticks())
     else:
-        released_keys[quick_menu_key] = True
+        released_keys[topbar_key] = True
 
     if lost == False and keys[reload_game_key]:
         if reload_game_key in released_keys and released_keys[reload_game_key] == True:
@@ -634,21 +656,23 @@ while running:
 
     if draw_topbar:
         if topbar_y < topbar_desired_y:
-            topbar_y += topbar_desired_y/2
+            topbar_y += topbar_y_size/6
         if topbar_y > topbar_desired_y:
             topbar_y = topbar_desired_y
         
         flags_text = write_text(flags, num_size, return_font=True)
         flags_size = flags_text[0].size(str(flags))
-        pygame.draw.line(SCREEN, background, (0,topbar_y), (WIDTH,topbar_y), topbar_y_size)
-        SCREEN.blit(topbar_flag_image, (3,topbar_y/2))
-        SCREEN.blit(flags_text[1], (topbar_flag_image.get_rect().width+6,topbar_y/2))
-        SCREEN.blit(game_title, (WIDTH/2-game_title_size[0]/2,topbar_y/2))
+        
+        SCREEN.blit(topbar, (0,topbar_y))
+        topbar.fill(topbar_background)
+        topbar.blit(topbar_flag_image, (3,topbar.get_height()/3))
+        topbar.blit(flags_text[1], (topbar_flag_image.get_rect().width+6,topbar.get_height()/3))
+        topbar.blit(game_title, (WIDTH/2-game_title_size[0]/2,topbar.get_height()/3))
 
         lives_text = write_text(f'Lives: {str(lives)}', num_size, (100,0,0), return_font=True)
         lives_text_size = lives_text[0].size(f'Lives: {str(lives)}')
         lives_text = lives_text[1]
-        SCREEN.blit(lives_text, (WIDTH/2+game_title_size[0]/2+lives_text_size[0], topbar_y/2))
+        topbar.blit(lives_text, (WIDTH/2+game_title_size[0]/2+lives_text_size[0], topbar.get_height()/3))
         
         if counter_start != None and correct != len(squares):
             gametime = str(time.time()-counter_start)
@@ -656,7 +680,7 @@ while running:
             time_text = write_text(gametime, num_size, return_font=True)
             time_text_size = time_text[0].size(gametime)
             time_text = time_text[1]
-            SCREEN.blit(time_text, (WIDTH-time_text_size[0]-5,topbar_y/2))
+            topbar.blit(time_text, (topbar.get_width()-time_text_size[0],topbar.get_height()/3))
     else:
         topbar_y = -topbar_y_size
 
