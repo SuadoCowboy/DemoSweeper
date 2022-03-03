@@ -1,10 +1,5 @@
-do some shit with games.json
-
-add more sounds to more things
-
 add main menu
+MODOS SÓ VÃO SER SELECIONADOS POR DENTRO DO JOGO, COM A LISTA DE MODOS(só o modo debug q permite)
+add sounds to main menu
 
-add sys.argv thing to pass debug mode shit, or
-add 2 .exe, debug mode and default mode where
-debug mode can also see games.json better than
-default mode.
+do something with demo system

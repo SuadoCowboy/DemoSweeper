@@ -1,3 +1,4 @@
+# WARNING: this code is messy and i'm lazy to make it better
 import ini_handler
 import pygame
 import random
@@ -6,7 +7,8 @@ import os.path
 import json
 import os
 import time
-#import sys
+import sys
+from games_handler import *
 
 file_directory = __file__.split(os.path.sep)[:-1]
 
@@ -17,7 +19,7 @@ for i in file_directory:
 file_directory = temp[:-1]
 del(temp)
 
-#sys.path.append(file_directory) # exe file only works with that
+#sys.path.append(file_directory) # exe file only works with that instead of os.chdir
 os.chdir(file_directory)
 
 pygame.font.init()
@@ -33,9 +35,9 @@ cfg = ini_handler.config('config.ini')
 cfg.addconfig(1200,'WINDOW','width')
 cfg.addconfig(600,'WINDOW','height')
 cfg.addconfig('20,20,20','WINDOW','background_color')
+cfg.addconfig('40,40,40', 'WINDOW', 'button_color')
 cfg.addconfig('125,125,150','WINDOW','square_color')
 cfg.addconfig('255,255,255','WINDOW','square_font_color')
-cfg.addconfig(False, 'WINDOW', 'debug')
 cfg.addconfig(15, 'WINDOW', 'debug_alpha')
 cfg.addconfig(0.3, 'WINDOW', 'volume')
 
@@ -48,7 +50,6 @@ cfg.addconfig(30, 'MINESWEEPER', 'bombs_amount')
 cfg.addconfig('assets/flag.png','ASSETS','flag_image_path')
 cfg.addconfig('assets/bomb.png','ASSETS','bomb_image_path')
 cfg.addconfig('assets/lost.png', 'ASSETS', 'lost_image_path')
-
 cfg.addconfig('assets/click.mp3', 'ASSETS', 'click_sound')
 cfg.addconfig('assets/lost.wav', 'ASSETS', 'lost_sound')
 cfg.addconfig('assets/missed1.wav', 'ASSETS', 'missed_sound1')
@@ -58,9 +59,21 @@ cfg.addconfig('assets/missed4.wav', 'ASSETS', 'missed_sound4')
 cfg.addconfig('assets/missed5.wav', 'ASSETS', 'missed_sound5')
 cfg.addconfig('assets/winning_sounds', 'ASSETS', 'winning_sounds_path')
 
-cfg.getconfig()
+cfg.addconfig('ESCAPE', 'BINDS', 'quick_menu')
+cfg.addconfig('F3', 'BINDS','debug_mode')
+cfg.addconfig('F5', 'BINDS','reload_game')
 
+cfg.getconfig()
 cfg = cfg.returnresult()
+
+quick_menu_key = cfg['BINDS']['quick_menu']
+quick_menu_key = eval(f'pygame.K_{quick_menu_key}')
+
+debug_mode_key = cfg['BINDS']['debug_mode']
+debug_mode_key = eval(f'pygame.K_{debug_mode_key}')
+
+reload_game_key = cfg['BINDS']['reload_game']
+reload_game_key = eval(f'pygame.K_{reload_game_key}')
 
 level = cfg['MINESWEEPER']['level']
 w_amount = cfg['MINESWEEPER']['w_amount']
@@ -68,29 +81,63 @@ h_amount = cfg['MINESWEEPER']['h_amount']
 default_lives = cfg['MINESWEEPER']['lives']
 bombs_amount = cfg['MINESWEEPER']['bombs_amount']
 
-debug_mode = cfg['WINDOW']['debug']
-
-if debug_mode:
-    print(f'File path: {__file__}')
-    
-    level = input('level: ')
-    debug_mode = False
+w, h = None, None
+args = sys.argv[1:]
+ignore_indexes = []
+for index,arg in enumerate(args):
+    if index not in ignore_indexes:
+        if arg == '-level':
+            ignore_indexes.append(index+1)
+            if len(args)-1 > index:
+                level = args[index+1]
+        
+        elif arg == '-load' and '-watch' not in args:
+            if len(args)-1 > index+1: # index+1 for 2 args
+                ignore_indexes.append(index+1)
+                ignore_indexes.append(index+2)
+                #args[index+1] # filename
+                #args[index+2] # gametitle
+        
+        elif arg == '-watch':
+            if len(args)-1 > index+1: # index+1 for 2 args
+                ignore_indexes.append(index+1)
+                ignore_indexes.append(index+2)
+                #args[index+1] # filename
+                #args[index+2] # gametitle
+        elif arg == '-w' or arg == '-width':
+            if len(args)-1 > index:
+                ignore_indexes.append(index+1)
+                w = int(args[index+1])
+        elif arg == '-h' or arg == '-height':
+            if len(args)-1 > index:
+                ignore_indexes.append(index+1)
+                h = int(args[index+1])
+        else:
+            print(f'Unknown command: {arg}')
+del(ignore_indexes)
 
 levels = json.load(open('levels.json','r'))
 
-for l in levels:
-    if level in l.replace(' ','').split(';'):
-        l = levels[l]
-        w_amount = l['w_amount']
-        h_amount = l['h_amount']
-        bombs_amount = l['bombs_amount']
-        default_lives = l['lives']
-        break
+def get_level():
+    global w_amount, h_amount, bombs_amount, default_lives
+    for l in levels:
+        if level in l.replace(' ','').split(';'):
+            l = levels[l]
+            w_amount = l['w_amount']
+            h_amount = l['h_amount']
+            bombs_amount = l['bombs_amount']
+            default_lives = l['lives']
+            break
+    
+    if bombs_amount >= w_amount*h_amount:
+        bombs_amount = w_amount*h_amount-1
 
-if bombs_amount >= w_amount*h_amount:
-    bombs_amount = w_amount*h_amount-1
+get_level()
 
-w, h = cfg['WINDOW']['width'], cfg['WINDOW']['height']
+if w == None:
+    w = cfg['WINDOW']['width']
+if h == None:
+    h = cfg['WINDOW']['height']
 
 if w < 400:
     w = 400
@@ -120,6 +167,9 @@ GRID_H = int(HEIGHT/h_amount)
 
 background = cfg['WINDOW']['background_color'].split(',')
 background = (int(background[0]), int(background[1]), int(background[2]))
+
+button_color = cfg['WINDOW']['button_color'].split(',')
+button_color = (int(button_color[0]), int(button_color[1]), int(button_color[2]))
 
 flag_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['flag_image_path']), (GRID_W-3,GRID_H-1))
 bomb_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['bomb_image_path']), (GRID_W-3,GRID_H-1))
@@ -186,16 +236,20 @@ for num in range(9):
     numbers.append([size, text])
 
 del(num)
-del(size) # just to free memory
+del(size) # just to free memory...
+
+game_actions = {}
+game_squares = []
 
 class Square(pygame.Rect):
-    def __init__(self, screen, x: int, y: int, is_bomb: bool, color: tuple=(125,125,150)):
+    def __init__(self, screen, x: int, y: int, is_bomb: bool, index: int, color: tuple=(125,125,150)):
         width = GRID_W-3
         height = GRID_H-1
         super().__init__(x, y, width, height)
         
         self.screen = screen
         self.is_bomb = is_bomb
+        self.index = index
         self.color = color
 
         self.is_pressed = False
@@ -242,27 +296,31 @@ class Square(pygame.Rect):
             return
         
         if pygame.mouse.get_pressed()[0] and self.collidepoint(pygame.mouse.get_pos()) and not self.is_flag:
+            game_actions['mouse1'].append([pygame.time.get_ticks(), self.index])
+
             if self.is_bomb and not self.is_pressed:
                 if not first_play:
                     self.lost = True
                     self.is_pressed = True
                     return -1
                 else:
-                    got_atleast_one = False
-                    while not got_atleast_one:
-                        square = random.choice(squares)
-                        if square != self:
-                            if not square.is_bomb and not square.is_pressed:
-                                square.is_bomb = True
-                                got_atleast_one = True
+                    replaced_one = False
+                    while not replaced_one:
+                        square = random.randint(0,len(squares)-1)
+                        if squares[square] != self:
+                            if not squares[square].is_bomb and not squares[square].is_pressed:
+                                squares[square].is_bomb = True
+                                game_squares[self.index] = False
+                                game_squares[square] = True
+                                replaced_one = True
                         
-                    if not got_atleast_one:
+                    if not replaced_one:
                         self.lost = True
                         self.is_pressed = True
                         return -1
                         
                     
-                    remove_bomb(self, square)
+                    remove_bomb(self, squares[square])
                     
                     for square in squares:
                         square.bombs_nearby = square.check_bombs(bombs)
@@ -280,6 +338,8 @@ class Square(pygame.Rect):
                 return
         
         if pygame.mouse.get_pressed()[2] and self.collidepoint(pygame.mouse.get_pos()):
+            game_actions['mouse2'].append([pygame.time.get_ticks(), self.index])
+
             if pygame.time.get_ticks()-self.last_tick > 325:
                 self.is_pressed = not self.is_pressed
                 self.last_tick = pygame.time.get_ticks()
@@ -316,7 +376,7 @@ class Square(pygame.Rect):
 squares = []
 for y in range(h_amount): # pygame.draw.line(SCREEN, background, (0,20), (WIDTH,20), 40)
     for x in range(w_amount):
-        squares.append(Square(SCREEN, x*GRID_W+2, y*GRID_H+1, False, square_color))
+        squares.append(Square(SCREEN, x*GRID_W+2, y*GRID_H+1, False, len(squares), square_color))
 
 def remove_bomb(square: Square, replace_with: Square=None):
     square.is_bomb = False
@@ -328,8 +388,13 @@ def remove_bomb(square: Square, replace_with: Square=None):
             bombs.append(replace_with)
 
 def create_game():
-    global bombs, already_started_counter, lives, first_play, lost
+    global bombs, already_started_counter, lives, first_play, lost, counter_start, game_actions, game_squares
     
+    game_actions = {'debug_mode_key':[],'quick_menu_key':[],'reload_game_key':[],'mouse1':[],'mouse2':[]}
+
+    game_squares = []
+    counter_start = None
+
     lost = False
 
     first_play = True
@@ -353,47 +418,17 @@ def create_game():
     
     for square in squares:
         square.bombs_nearby = square.check_bombs(bombs_arr)
+        game_squares.append(square.is_bomb)
         
     bombs = bombs_arr
     return bombs_arr
 
-class Games: # talvez fazer uma forma de mostrar como foi o jogo inteiro (pode usar uma array q adiciona cada bloco pressionado que foi negoçado e q foi bomba q ativou e pa ou sla)
-    def __init__(self, filename):
-        self.filename = filename
-        
-        if not os.path.exists(self.filename):
-            with open(self.filename, 'w+') as f:
-                f.write('{}')
-        
-        self.content = json.load(open(self.filename,'r'))
-            
-    def add_game(self, game_title: str, time: float, lives: int, default_lives: int, won_game: bool, bombs: int, grid_width: float, grid_height: float): # se lembrar de botar mais informação do jogo
-        default_title = game_title
-        index = 1
-        for title in self.content:
-            if title == game_title:
-                game_title = default_title+str(index)
-                index += 1
-        
-        self.content[game_title] = {
-            'index':index,
-            'time':time,
-            'lives':lives,
-            'default_lives':default_lives,
-            'won':won_game,
-            'bombs':bombs,
-            'grid_width':grid_width,
-            'grid_height':grid_height
-        }
-
-        json.dump(self.content, open(self.filename, 'w+'))
-
 games = Games('games.json')
 
-bombs = 0
+bombs = None # bombs = bombs_arr -> type(bombs) = list
 create_game()
 
-def start_new_game(won_game=True):
+def start_new_game(won_game=True, wait_time=2500):
     global t_args, t_function, t_start, t_wanted, time_text, time_text_size, used_debug_mode, debug_mode
 
     gametime = str(time.time()-counter_start)
@@ -402,24 +437,23 @@ def start_new_game(won_game=True):
     if won_game:
         play_sound(random.choice(winning_sounds))
 
-    out = f'Time: {gametime} Won: {str(won_game).lower()} Bombs: {len(bombs)}'
+    out = f'Time: {gametime} Bombs: {len(bombs)}'
     
     time_text = write_text(out, int(WIDTH/30+HEIGHT/30), return_font=True)
     time_text_size = time_text[0].size(out)
     time_text = time_text[1]
     
     if not used_debug_mode:
-        games.add_game('game', gametime, lives, default_lives, won_game, bombs_amount, GRID_W, GRID_H)
+        games.add_game('game', gametime, default_lives, won_game, bombs_amount, w_amount, h_amount, WIDTH, HEIGHT, game_actions, game_squares)
     else:
         debug_mode = False
         used_debug_mode = False
     
     t_start = pygame.time.get_ticks()
-    t_wanted = 2500
+    t_wanted = wait_time
     t_function = create_game
     t_args = []
 
-counter_start = None
 def restart_game():
     global lives
     lives -= 1
@@ -434,7 +468,12 @@ def restart_game():
         
         square.lost = False
 
+def ignore_func():
+    pass
+
 pressed_once = [False, False, False]
+
+debug_mode = False
 
 t_start = -1
 t_wanted = 0
@@ -470,16 +509,38 @@ missed_sounds_length = len(missed_sounds)
 last_missed_sound = None
 actual_missed_sound = None
 
+# rg stands for restart game
+rg_request_draw = False
+
+rg_request_text = write_text('restart?', num_size, (255,0,0), return_font=True)
+rg_request_size = rg_request_text[0].size('restart?')
+rg_request_text = rg_request_text[1]
+
+rg_request_box = pygame.Rect(WIDTH/4,HEIGHT/4, WIDTH/2,HEIGHT/2)
+
+rg_request_yes_text = write_text('yes', num_size, return_font=True)
+rg_request_yes_text_size = rg_request_yes_text[0].size('yes')
+rg_request_yes_text = rg_request_yes_text[1]
+rg_request_yesbutton = pygame.Rect(rg_request_box.x+25,rg_request_box.y+rg_request_box.height-65,rg_request_yes_text_size[0]+10,rg_request_yes_text_size[1]+5)
+
+rg_request_no_text = write_text('no', num_size, return_font=True)
+rg_request_no_text_size = rg_request_no_text[0].size('no')
+rg_request_no_text = rg_request_no_text[1]
+rg_request_nobutton = pygame.Rect(rg_request_box.x+rg_request_box.width-75,rg_request_box.y+rg_request_box.height-65,rg_request_no_text_size[0]+10,rg_request_no_text_size[1]+5)
+
+topbar_flag_image = pygame.transform.scale(flag_image, (WIDTH/30,-topbar_y/2))
+
+counter_start = None
 lost = False
 used_debug_mode = False
 running = True
 while running:
+    clock.tick(FPS)
+    SCREEN.fill(background)
+    
     if not first_play and not already_started_counter:
         counter_start = time.time()
         already_started_counter = True
-    
-    clock.tick(FPS)
-    SCREEN.fill(background)
     
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -495,20 +556,30 @@ while running:
                 pressed_once[2] = True
     
     keys = pygame.key.get_pressed()
-    if lost == False and keys[pygame.K_F3]:
-        if pygame.K_F3 in released_keys and released_keys[pygame.K_F3] == True:
+    if lost == False and keys[debug_mode_key]:
+        if debug_mode_key in released_keys and released_keys[debug_mode_key] == True:
             debug_mode = not debug_mode
             used_debug_mode = True
-        released_keys[pygame.K_F3] = False
+            game_actions['debug_mode_key'].append(pygame.time.get_ticks())
+        released_keys[debug_mode_key] = False
     else:
-        released_keys[pygame.K_F3] = True
+        released_keys[debug_mode_key] = True
 
-    if lost == False and keys[pygame.K_ESCAPE]:
-        if pygame.K_ESCAPE in released_keys and released_keys[pygame.K_ESCAPE] == True:
+    if lost == False and keys[quick_menu_key]:
+        if quick_menu_key in released_keys and released_keys[quick_menu_key] == True:
             draw_topbar = not draw_topbar
-            released_keys[pygame.K_ESCAPE] = False
+            released_keys[quick_menu_key] = False
+            game_actions['quick_menu_key'].append(pygame.time.get_ticks())
     else:
-        released_keys[pygame.K_ESCAPE] = True
+        released_keys[quick_menu_key] = True
+
+    if lost == False and keys[reload_game_key]:
+        if reload_game_key in released_keys and released_keys[reload_game_key] == True:
+            rg_request_draw = not rg_request_draw
+            released_keys[reload_game_key] = False
+            game_actions['reload_game_key'].append(pygame.time.get_ticks())
+    else:
+        released_keys[reload_game_key] = True
 
     for y in range(WIDTH):
         pygame.draw.line(SCREEN, (45,45,45), (y*GRID_W,0), (y*GRID_W,HEIGHT), 3)
@@ -529,7 +600,7 @@ while running:
                 square_surface.fill((0,255,0))
                 SCREEN.blit(square_surface, (square.x, square.y))
 
-        if t_start == -1 and square.update() == -1:
+        if t_start == -1 and rg_request_draw == False and square.update() == -1:
             if lives == 1:
                 if lost_sound != None:
                     play_sound(lost_sound)
@@ -556,10 +627,10 @@ while running:
             correct += 1
     
     if correct == len(squares):
-        SCREEN.blit(win_text, (WIDTH/2-win_text_size[0]/2,HEIGHT/2-win_text_size[1]/2))
-        SCREEN.blit(time_text, (WIDTH/2-time_text_size[0]/2, HEIGHT/2+win_text_size[1]/2+5))
         if t_start == -1:
             start_new_game()
+        SCREEN.blit(win_text, (WIDTH/2-win_text_size[0]/2,HEIGHT/2-win_text_size[1]/2))
+        SCREEN.blit(time_text, (WIDTH/2-time_text_size[0]/2, HEIGHT/2+win_text_size[1]/2+5))
 
     if draw_topbar:
         if topbar_y < topbar_desired_y:
@@ -570,14 +641,49 @@ while running:
         flags_text = write_text(flags, num_size, return_font=True)
         flags_size = flags_text[0].size(str(flags))
         pygame.draw.line(SCREEN, background, (0,topbar_y), (WIDTH,topbar_y), topbar_y_size)
-        SCREEN.blit(flag_image, (3,topbar_y/2))
-        SCREEN.blit(flags_text[1], (GRID_W+6,topbar_y/2))
+        SCREEN.blit(topbar_flag_image, (3,topbar_y/2))
+        SCREEN.blit(flags_text[1], (topbar_flag_image.get_rect().width+6,topbar_y/2))
         SCREEN.blit(game_title, (WIDTH/2-game_title_size[0]/2,topbar_y/2))
+
+        lives_text = write_text(f'Lives: {str(lives)}', num_size, (100,0,0), return_font=True)
+        lives_text_size = lives_text[0].size(f'Lives: {str(lives)}')
+        lives_text = lives_text[1]
+        SCREEN.blit(lives_text, (WIDTH/2+game_title_size[0]/2+lives_text_size[0], topbar_y/2))
+        
+        if counter_start != None and correct != len(squares):
+            gametime = str(time.time()-counter_start)
+            gametime = gametime[:gametime.index('.')+2]
+            time_text = write_text(gametime, num_size, return_font=True)
+            time_text_size = time_text[0].size(gametime)
+            time_text = time_text[1]
+            SCREEN.blit(time_text, (WIDTH-time_text_size[0]-5,topbar_y/2))
     else:
-        topbar_y = -40
+        topbar_y = -topbar_y_size
 
     if lost:
         SCREEN.blit(lost_image, (WIDTH/4, HEIGHT/4))
+
+    if rg_request_draw:
+        pygame.draw.rect(SCREEN, background, rg_request_box)
+        
+        SCREEN.blit(rg_request_text, (rg_request_box.x+(rg_request_box.width/2)-(rg_request_size[0]/2), rg_request_box.y+(rg_request_box.height/2)-(rg_request_size[1]/2)))
+
+        pygame.draw.rect(SCREEN, button_color, rg_request_yesbutton)
+        SCREEN.blit(rg_request_yes_text, (rg_request_yesbutton.x+(rg_request_yesbutton.width/2)-(rg_request_yes_text_size[0]/2), rg_request_yesbutton.y+(rg_request_yesbutton.height/2)-(rg_request_yes_text_size[1]/2)))
+
+        pygame.draw.rect(SCREEN, button_color, rg_request_nobutton)
+        SCREEN.blit(rg_request_no_text, (rg_request_nobutton.x+(rg_request_nobutton.width/2)-(rg_request_no_text_size[0]/2), rg_request_nobutton.y+(rg_request_nobutton.height/2)-(rg_request_no_text_size[1]/2)))
+
+        if rg_request_yesbutton.collidepoint(pygame.mouse.get_pos()) and pygame.mouse.get_pressed()[0]:
+            used_debug_mode = True
+            rg_request_draw = False
+            counter_start = 0
+            start_new_game(False, 150)
+        elif rg_request_nobutton.collidepoint(pygame.mouse.get_pos()) and pygame.mouse.get_pressed()[0]:
+            rg_request_draw = False
+            t_start = pygame.time.get_ticks()
+            t_function = ignore_func
+            t_wanted = 150
 
     if t_start != -1 and pygame.time.get_ticks()-t_start >= t_wanted:
         t_start = -1
