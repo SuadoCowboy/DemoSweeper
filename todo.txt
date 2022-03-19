@@ -1,5 +1,7 @@
 add main menu
-MODOS SÓ VÃO SER SELECIONADOS POR DENTRO DO JOGO, COM A LISTA DE MODOS(só o modo debug q permite)
+
+MODOS SÓ VÃO SER SELECIONADOS POR DENTRO DO JOGO, COM A LISTA DE MODOS
+
 add sounds to main menu
 
 do something with demo system

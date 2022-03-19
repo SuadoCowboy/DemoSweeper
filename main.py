@@ -19,27 +19,25 @@ for i in file_directory:
 file_directory = temp[:-1]
 del(temp)
 
-#sys.path.append(file_directory) # exe file only works with that instead of os.chdir
-os.chdir(file_directory)
+# I can't find a way to make os.chdir work when file is an executable
+#os.chdir(file_directory)
 
 pygame.font.init()
 pygame.init()
 
-def write_text(text, size=24, color=(255,255,255), antialias=False, return_font=False):
-    font = pygame.font.SysFont('', size)
-    if return_font:
-        return [font, font.render(str(text), antialias, color)]
-    return font.render(str(text), antialias, color)
-
 cfg = ini_handler.config('config.ini')
 cfg.addconfig(1200, 'WINDOW', 'width')
 cfg.addconfig(600, 'WINDOW', 'height')
+cfg.addconfig('255,255,255', 'WINDOW', 'default_font_color')
 cfg.addconfig('20,20,20', 'WINDOW', 'background_color')
 cfg.addconfig('40,40,40', 'WINDOW', 'button_color')
 cfg.addconfig('125,125,150', 'WINDOW', 'square_color')
 cfg.addconfig('255,255,255', 'WINDOW', 'square_font_color')
 cfg.addconfig(15, 'WINDOW', 'debug_alpha')
 cfg.addconfig(0.3, 'WINDOW', 'volume')
+cfg.addconfig('45,45,45','WINDOW','grid_y_line_color')
+cfg.addconfig('45,45,45','WINDOW','grid_x_line_color')
+cfg.addconfig('games', 'WINDOW', 'games_path')
 
 cfg.addconfig('default', 'MINESWEEPER', 'level')
 cfg.addconfig(20,'MINESWEEPER','w_amount')
@@ -68,10 +66,23 @@ cfg.addconfig('20,20,20', 'TOPBAR', 'background_color')
 cfg.addconfig('100,0,0', 'TOPBAR', 'lives_font_color')
 cfg.addconfig('125,125,150','TOPBAR', 'gametitle_color')
 cfg.addconfig('255,255,255', 'TOPBAR', 'flags_font_color')
-
+cfg.addconfig('255,255,255', 'TOPBAR', 'time_font_color')
 
 cfg.getconfig()
 cfg = cfg.returnresult()
+
+default_color = cfg['WINDOW']['default_font_color'].split(',')
+default_color = (int(default_color[0]), int(default_color[1]), int(default_color[2]))
+
+games_path = cfg['WINDOW']['games_path']
+if games_path.endswith(os.sep):
+    games_path = games_path[:-1]
+
+def write_text(text, size=24, color=default_color, antialias=False, return_font=False):
+    font = pygame.font.SysFont('', size)
+    if return_font:
+        return [font, font.render(str(text), antialias, color)]
+    return font.render(str(text), antialias, color)
 
 topbar_key = cfg['BINDS']['topbar_toggle']
 topbar_key = eval(f'pygame.K_{topbar_key}')
@@ -172,6 +183,12 @@ FPS = 60
 GRID_W = int(WIDTH/w_amount)
 GRID_H = int(HEIGHT/h_amount)
 
+grid_x_line_color = cfg['WINDOW']['grid_x_line_color'].split(',')
+grid_x_line_color = (int(grid_x_line_color[0]), int(grid_x_line_color[1]), int(grid_x_line_color[2]))
+
+grid_y_line_color = cfg['WINDOW']['grid_y_line_color'].split(',')
+grid_y_line_color = (int(grid_y_line_color[0]), int(grid_y_line_color[1]), int(grid_y_line_color[2]))
+
 background = cfg['WINDOW']['background_color'].split(',')
 background = (int(background[0]), int(background[1]), int(background[2]))
 
@@ -189,6 +206,9 @@ topbar_gametitle_color = (int(topbar_gametitle_color[0]), int(topbar_gametitle_c
 
 topbar_flags_font_color = cfg['TOPBAR']['flags_font_color'].split(',')
 topbar_flags_font_color = (int(topbar_flags_font_color[0]), int(topbar_flags_font_color[1]), int(topbar_flags_font_color[2]))
+
+topbar_time_font_color = cfg['TOPBAR']['time_font_color'].split(',')
+topbar_time_font_color = (int(topbar_time_font_color[0]), int(topbar_time_font_color[1]), int(topbar_time_font_color[2]))
 
 flag_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['flag_image_path']), (GRID_W-3,GRID_H-1))
 bomb_image = pygame.transform.scale(pygame.image.load(cfg['ASSETS']['bomb_image_path']), (GRID_W-3,GRID_H-1))
@@ -442,8 +462,6 @@ def create_game():
     bombs = bombs_arr
     return bombs_arr
 
-games = Games('games.json')
-
 bombs = None # bombs = bombs_arr -> type(bombs) = list
 create_game()
 
@@ -463,7 +481,8 @@ def start_new_game(won_game=True, wait_time=2500):
     time_text = time_text[1]
     
     if not used_debug_mode:
-        games.add_game('game', gametime, default_lives, won_game, bombs_amount, w_amount, h_amount, WIDTH, HEIGHT, game_actions, game_squares)
+        game = Game(games_path+os.sep+'game.json')
+        game.add_game(gametime, default_lives, won_game, bombs_amount, w_amount, h_amount, WIDTH, HEIGHT, game_actions, game_squares)
     else:
         debug_mode = False
         used_debug_mode = False
@@ -520,7 +539,7 @@ topbar_y_size = topbar.get_height()
 topbar_y = -topbar_y_size
 topbar_desired_y = 0
 
-game_title = write_text('DemoSweeper', 32, square_color, return_font=True)
+game_title = write_text('DemoSweeper', 32, topbar_gametitle_color, return_font=True)
 game_title_size = game_title[0].size('DemoSweeper')
 game_title = game_title[1]
 
@@ -603,11 +622,11 @@ while running:
     else:
         released_keys[reload_game_key] = True
 
-    for y in range(WIDTH):
-        pygame.draw.line(SCREEN, (45,45,45), (y*GRID_W,0), (y*GRID_W,HEIGHT), 3)
+    for x in range(WIDTH): # | | | |
+        pygame.draw.line(SCREEN, grid_x_line_color, (x*GRID_W,0), (x*GRID_W,HEIGHT), 3)
     
-    for x in range(HEIGHT):
-        pygame.draw.line(SCREEN, (45,45,45), (0, x*GRID_H), (WIDTH, x*GRID_H))
+    for y in range(HEIGHT): # -------
+        pygame.draw.line(SCREEN, grid_y_line_color, (0, y*GRID_H), (WIDTH, y*GRID_H))
     
     flags = len(bombs)
     correct = 0
@@ -660,7 +679,7 @@ while running:
         if topbar_y > topbar_desired_y:
             topbar_y = topbar_desired_y
         
-        flags_text = write_text(flags, num_size, return_font=True)
+        flags_text = write_text(flags, num_size, topbar_flags_font_color, return_font=True)
         flags_size = flags_text[0].size(str(flags))
         
         SCREEN.blit(topbar, (0,topbar_y))
@@ -669,7 +688,7 @@ while running:
         topbar.blit(flags_text[1], (topbar_flag_image.get_rect().width+6,topbar.get_height()/3))
         topbar.blit(game_title, (WIDTH/2-game_title_size[0]/2,topbar.get_height()/3))
 
-        lives_text = write_text(f'Lives: {str(lives)}', num_size, (100,0,0), return_font=True)
+        lives_text = write_text(f'Lives: {str(lives)}', num_size, topbar_lives_font_color, return_font=True)
         lives_text_size = lives_text[0].size(f'Lives: {str(lives)}')
         lives_text = lives_text[1]
         topbar.blit(lives_text, (WIDTH/2+game_title_size[0]/2+lives_text_size[0], topbar.get_height()/3))
@@ -677,7 +696,7 @@ while running:
         if counter_start != None and correct != len(squares):
             gametime = str(time.time()-counter_start)
             gametime = gametime[:gametime.index('.')+2]
-            time_text = write_text(gametime, num_size, return_font=True)
+            time_text = write_text(gametime, num_size, topbar_time_font_color, return_font=True)
             time_text_size = time_text[0].size(gametime)
             time_text = time_text[1]
             topbar.blit(time_text, (topbar.get_width()-time_text_size[0],topbar.get_height()/3))
